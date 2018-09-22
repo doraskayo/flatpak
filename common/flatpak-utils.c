@@ -511,6 +511,27 @@ flatpak_get_arches (void)
   return (const char **) arches;
 }
 
+static char *
+flatpak_get_nvidia_driver_version (void)
+{
+  g_autofree char *nvidia_version;
+
+  if (g_file_get_contents ("/sys/module/nvidia/version",
+                           &nvidia_version, NULL, NULL))
+    {
+      char *dot;
+
+      g_strstrip (nvidia_version);
+      /* Convert dots to dashes */
+      while ((dot = strchr (nvidia_version, '.')) != NULL)
+        *dot = '-';
+
+      return g_strconcat ("nvidia-", nvidia_version, NULL);
+    }
+
+  return NULL;
+}
+
 const char **
 flatpak_get_gl_drivers (void)
 {
@@ -525,19 +546,12 @@ flatpak_get_gl_drivers (void)
         new_drivers_c = g_strsplit (env, ":", -1);
       else
         {
-          g_autofree char *nvidia_version = NULL;
-          char *dot;
           GPtrArray *array = g_ptr_array_new ();
+          char *nvidia_version;
 
-          if (g_file_get_contents ("/sys/module/nvidia/version",
-                                   &nvidia_version, NULL, NULL))
-            {
-              g_strstrip (nvidia_version);
-              /* Convert dots to dashes */
-              while ((dot = strchr (nvidia_version, '.')) != NULL)
-                *dot = '-';
-              g_ptr_array_add (array, g_strconcat ("nvidia-", nvidia_version, NULL));
-            }
+          nvidia_version = flatpak_get_nvidia_driver_version();
+          if (nvidia_version != NULL)
+              g_ptr_array_add (array, nvidia_version);
 
           g_ptr_array_add (array, (char *) "default");
           g_ptr_array_add (array, (char *) "host");
