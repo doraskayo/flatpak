@@ -514,10 +514,18 @@ flatpak_get_arches (void)
 static char *
 flatpak_get_nvidia_driver_version (void)
 {
-  g_autofree char *nvidia_version;
+  g_autofree char *nvidia_version = NULL;
+  g_autoptr(GError) error = NULL;
+  int exit_status = -1;
 
-  if (g_file_get_contents ("/sys/module/nvidia/version",
-                           &nvidia_version, NULL, NULL))
+  if (!g_spawn_command_line_sync ("modinfo -F version nvidia",
+                           &nvidia_version, NULL, &exit_status, &error))
+    {
+      g_print (_("Spawning child failed: %s"), error->message);
+      return NULL;
+    }
+
+  if (exit_status == 0 && nvidia_version != NULL)
     {
       char *dot;
 
